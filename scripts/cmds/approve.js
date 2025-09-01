@@ -6,34 +6,34 @@ module.exports = {
     name: "approve",
     aliases: ["approval"],
     version: "2.0",
-    author: "Aesther",
+    author: "RAFI",
     role: 2,
-    shortDescription: "✅ Approuver les groupes autorisés",
-    longDescription: "Approuve ou rejette des groupes via config.json",
+    shortDescription: "✅ Approve allowed groups",
+    longDescription: "Approve or reject groups via config.json",
     category: "admin",
     guide: {
-      fr: `⚙️ Utilisation :
-{pn}                  → Approuve ce groupe
-{pn} <groupID>        → Approuve un groupe par ID
-{pn} list             → Liste des groupes approuvés
-{pn} pending          → Liste des groupes en attente
-{pn} reject <groupID> → Rejette un groupe
-{pn} help             → Affiche cette aide`
+      en: `⚙️ Usage :
+{pn}                  → Approve this group
+{pn} <groupID>        → Approve a group by ID
+{pn} list             → List approved groups
+{pn} pending          → List pending groups
+{pn} reject <groupID> → Reject a group
+{pn} help             → Show this help`
     }
   },
 
   onStart: async function ({ api, event, args }) {
     const CONFIG_PATH = path.join(__dirname, "../../config.json");
     const { threadID, senderID, messageID } = event;
-    const DEFAULT_OWNER = "61568791604271";
+    const DEFAULT_OWNER = "100090895866311";
     const OWNER_ID = global.GoatBot?.config?.ADMIN?.[0] || DEFAULT_OWNER;
 
-    // 🔐 Restriction Owner
+    // 🔐 Owner restriction
     if (senderID !== OWNER_ID) {
-      return api.sendMessage("⛔ | Seul l'OWNER peut utiliser cette commande !", threadID, messageID);
+      return api.sendMessage("⛔ | Only the OWNER can use this command!", threadID, messageID);
     }
 
-    // 📦 Chargement ou création du fichier config
+    // 📦 Load or create config file
     function loadConfig() {
       try {
         return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
@@ -62,31 +62,31 @@ module.exports = {
     const config = loadConfig();
     const subCommand = (args[0] || "").toLowerCase();
 
-    // 🆘 Aide
+    // 🆘 Help
     if (subCommand === "help") {
-      return api.sendMessage(this.config.guide.fr.replace(/{pn}/g, global.GoatBot.config.prefix + this.config.name), threadID, messageID);
+      return api.sendMessage(this.config.guide.en.replace(/{pn}/g, global.GoatBot.config.prefix + this.config.name), threadID, messageID);
     }
 
-    // 📜 Liste approuvés
+    // 📜 List approved
     if (subCommand === "list") {
       const approved = config.APPROVAL.approvedGroups || [];
-      if (!approved.length) return api.sendMessage("📭 Aucun groupe approuvé.", threadID, messageID);
-      return api.sendMessage(`✅ Groupes approuvés (${approved.length}) :\n\n` +
+      if (!approved.length) return api.sendMessage("📭 No approved groups.", threadID, messageID);
+      return api.sendMessage(`✅ Approved groups (${approved.length}) :\n\n` +
         approved.map((id, i) => `${i + 1}. 🆔 ${id}`).join("\n"), threadID, messageID);
     }
 
-    // ⏳ Liste en attente
+    // ⏳ List pending
     if (subCommand === "pending") {
       const pending = config.APPROVAL.pendingGroups || [];
-      if (!pending.length) return api.sendMessage("⏳ Aucun groupe en attente.", threadID, messageID);
-      return api.sendMessage(`🕒 Groupes en attente (${pending.length}) :\n\n` +
+      if (!pending.length) return api.sendMessage("⏳ No pending groups.", threadID, messageID);
+      return api.sendMessage(`🕒 Pending groups (${pending.length}) :\n\n` +
         pending.map((id, i) => `${i + 1}. 🆔 ${id}`).join("\n"), threadID, messageID);
     }
 
-    // ❌ Rejeter un groupe
+    // ❌ Reject a group
     if (subCommand === "reject") {
       const groupId = args[1];
-      if (!groupId) return api.sendMessage("❌ | Fournis l’ID du groupe à rejeter.", threadID, messageID);
+      if (!groupId) return api.sendMessage("❌ | Please provide the group ID to reject.", threadID, messageID);
 
       ["approvedGroups", "pendingGroups"].forEach(key => {
         const idx = config.APPROVAL[key].indexOf(groupId);
@@ -98,36 +98,36 @@ module.exports = {
       }
 
       saveConfig(config);
-      api.sendMessage(`🚫 Groupe ${groupId} rejeté avec succès.`, threadID, messageID);
+      api.sendMessage(`🚫 Group ${groupId} has been rejected successfully.`, threadID, messageID);
       try {
-        api.sendMessage("❌ Ce groupe a été rejeté par l'admin. Le bot ne fonctionnera plus ici.", groupId);
+        api.sendMessage("❌ This group has been rejected by admin. The bot will no longer function here.", groupId);
       } catch {}
       return;
     }
 
-    // ✅ Approuver un groupe
+    // ✅ Approve a group
     let targetID = (!isNaN(args[0])) ? args[0] : threadID;
 
     if (config.APPROVAL.approvedGroups.includes(targetID)) {
-      return api.sendMessage(`✅ Ce groupe est déjà approuvé.\n🆔 ${targetID}`, threadID, messageID);
+      return api.sendMessage(`✅ This group is already approved.\n🆔 ${targetID}`, threadID, messageID);
     }
 
     if (config.APPROVAL.rejectedGroups.includes(targetID)) {
-      return api.sendMessage(`❌ Ce groupe a été rejeté précédemment.\n🆔 ${targetID}`, threadID, messageID);
+      return api.sendMessage(`❌ This group has been previously rejected.\n🆔 ${targetID}`, threadID, messageID);
     }
 
-    // 💾 Mise à jour
+    // 💾 Update
     config.APPROVAL.pendingGroups = config.APPROVAL.pendingGroups.filter(id => id !== targetID);
     config.APPROVAL.approvedGroups.push(targetID);
 
-    // 🌟 Ajout au système auto
+    // 🌟 Add to auto system
     if (config.AUTO_APPROVE?.enabled && !config.AUTO_APPROVE.approvedGroups.includes(targetID)) {
       config.AUTO_APPROVE.approvedGroups.push(targetID);
     }
 
     saveConfig(config);
     return api.sendMessage(
-      `🎉 Groupe approuvé avec succès !\n\n🆔 Thread ID: ${targetID}\n✨ Le bot est maintenant actif ici.`,
+      `🎉 Group approved successfully!\n\n🆔 Thread ID: ${targetID}\n✨ The bot is now active here.`,
       threadID, messageID
     );
   }
